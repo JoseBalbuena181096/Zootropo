@@ -52,8 +52,6 @@ El sistema electrónico está diseñado para controlar la velocidad del motor y 
    - Si una persona se acerca a menos de 30 cm, el sistema apaga el motor para seguridad.
    - Al alejarse la persona, el zootropo retoma su funcionamiento a la velocidad configurada.
 
-# Proyecto Zootropo
-
 ## Descripción del Código
 
 - **Conexión WiFi:** El ESP32 se conecta a una red WiFi con credenciales predefinidas y asigna una IP estática para facilitar el acceso al servidor web.
