@@ -11,7 +11,7 @@
 const char *ssid = "zootropo";
 const char *password = "12345678";
 
-IPAddress local_IP(192, 168, 0, 251);
+IPAddress local_IP(192, 168, 0, 252);
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
@@ -19,9 +19,7 @@ IPAddress secondaryDNS(8, 8, 4, 4);
 
 WebServer server(80);
 
-const int threshold = 20;
-
-const int enablePin2 = 27; // Pin GPIO27
+const int enablePin2 = 27;
 const int R_I_EN = 26;
 const int enablePin = 14;
 
@@ -30,47 +28,24 @@ const int pwmChannel2 = 1;
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
 
-int velocidad = 0;
+int velocidad = 70;
+TaskHandle_t LedTaskHandle = NULL;
+TaskHandle_t WifiTaskHandle = NULL;
 
-// Pin para el encoder infrarrojo
-const int encoderPin = 13;
-volatile unsigned long revolutions = 0;
-volatile unsigned long lastEncoderTime = 0;
-const unsigned long debounceTime = 10; // 10 ms de debounce
-bool state_led = true;
-
-// Pines para los sensores ultrasónicos
-const int trigPin1 = 32, echoPin1 = 33; // Mantiene los pines originales
-const int trigPin2 = 15, echoPin2 = 22; // Nuevo sensor
-const int trigPin3 = 4, echoPin3 = 5;   // Nuevo sensor
-const int trigPin4 = 18, echoPin4 = 19; // Nuevo sensor
-
-void IRAM_ATTR encoderISR()
-{
-    unsigned long currentTime = millis();
-    if (currentTime - lastEncoderTime > debounceTime)
-    {
-        revolutions++;
-        lastEncoderTime = currentTime;
-        if (velocidad >= 25)
-        {
-            state_led = !state_led;
-        }
-        else
-        {
-            state_led = 0;
-        }
-        digitalWrite(2, state_led);
+// Tarea para controlar el LED en el núcleo 1
+void LedControlTask(void * parameter) {
+    pinMode(2, OUTPUT);
+    while (1) {
+        digitalWrite(2, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(2));  // Encendido por 15ms
+        digitalWrite(2, LOW);
+        vTaskDelay(pdMS_TO_TICKS(109));  // Apagado por 25ms
     }
 }
 
-// ... (keep the existing setup_wifi, handleRoot, handleSetSpeed, and handleGetRevolutions functions)
-
-void setup_wifi()
-{
+void setup_wifi() {
     delay(10);
-    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
-    {
+    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
         Serial.println("STA Failed to configure");
     }
 
@@ -80,8 +55,7 @@ void setup_wifi()
 
     WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED)
-    {
+    while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
     }
@@ -92,8 +66,7 @@ void setup_wifi()
     Serial.println(WiFi.localIP());
 }
 
-void handleRoot()
-{
+void handleRoot() {
     String html = "<html><head>";
     html += "<style>";
     html += "body { font-family: Arial, sans-serif; text-align: center; }";
@@ -116,22 +89,17 @@ void handleRoot()
     server.send(200, "text/html", html);
 }
 
-void handleSetSpeed()
-{
-    if (server.hasArg("speed"))
-    {
+void handleSetSpeed() {
+    if (server.hasArg("speed")) {
         velocidad = server.arg("speed").toInt();
         velocidad = constrain(velocidad, 0, 255);
 
-        if (velocidad < 1)
-        {
+        if (velocidad < 1) {
             ledcWrite(pwmChannel, 0);
             delayMicroseconds(100);
             ledcWrite(pwmChannel2, 0);
             digitalWrite(R_I_EN, LOW);
-        }
-        else
-        {
+        } else {
             ledcWrite(pwmChannel, velocidad);
             delayMicroseconds(100);
             ledcWrite(pwmChannel2, 0);
@@ -139,37 +107,31 @@ void handleSetSpeed()
         }
 
         server.send(200, "text/plain", "OK");
-    }
-    else
-    {
+    } else {
         server.send(400, "text/plain", "Falta el parámetro de velocidad");
     }
 }
 
-void handleGetRevolutions()
-{
-    server.send(200, "text/plain", String(revolutions));
+void WifiServerTask(void * parameter) {
+    setup_wifi();
+
+    server.on("/", HTTP_GET, handleRoot);
+    server.on("/setSpeed", HTTP_POST, handleSetSpeed);
+
+    server.begin();
+
+    while (1) {
+        server.handleClient();
+        vTaskDelay(10);
+    }
 }
 
-void setup()
-{
+void setup() {
     Serial.begin(115200);
 
     pinMode(R_I_EN, OUTPUT);
     pinMode(enablePin2, OUTPUT);
     pinMode(enablePin, OUTPUT);
-    pinMode(2, OUTPUT); // LED pin
-    pinMode(encoderPin, INPUT);
-
-    // Configuración de los pines de los sensores ultrasónicos
-    pinMode(trigPin1, OUTPUT);
-    pinMode(echoPin1, INPUT);
-    pinMode(trigPin2, OUTPUT);
-    pinMode(echoPin2, INPUT);
-    pinMode(trigPin3, OUTPUT);
-    pinMode(echoPin3, INPUT);
-    pinMode(trigPin4, OUTPUT);
-    pinMode(echoPin4, INPUT);
 
     ledcSetup(pwmChannel, pwmFreq, pwmResolution);
     ledcAttachPin(enablePin, pwmChannel);
@@ -177,68 +139,38 @@ void setup()
     ledcSetup(pwmChannel2, pwmFreq, pwmResolution);
     ledcAttachPin(enablePin2, pwmChannel2);
 
-    attachInterrupt(digitalPinToInterrupt(encoderPin), encoderISR, RISING);
-
-    setup_wifi();
-
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/setSpeed", HTTP_POST, handleSetSpeed);
-    server.on("/getRevolutions", HTTP_GET, handleGetRevolutions);
-
-    server.begin();
-    digitalWrite(2, 0);
-}
-
-float getDistance(int trigPin, int echoPin)
-{
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
+    digitalWrite(R_I_EN, HIGH);
+    ledcWrite(pwmChannel, velocidad);
     delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
+    ledcWrite(pwmChannel2, 0);
 
-    // Tiempo máximo de espera (en microsegundos) para recibir el eco.
-    long duration = pulseIn(echoPin, HIGH, 10000); // 30,000 µs = 30 ms
+    // Crear tarea para el LED en el núcleo 1
+    xTaskCreatePinnedToCore(
+        LedControlTask,
+        "LEDControl",
+        2048,
+        NULL,
+        1,
+        &LedTaskHandle,
+        1
+    );
 
-    // Si no se recibe eco (duration = 0), retornamos un valor alto para indicar un fallo.
-    if (duration == 0)
-    {
-        return 9999.9; // Valor grande que indica que no se recibió eco
-    }
-
-    // Calculamos la distancia en cm
-    float distance = duration * 0.034 / 2;
-    return distance;
+    // Crear tarea para WiFi y servidor web en el núcleo 0
+    xTaskCreatePinnedToCore(
+        WifiServerTask,
+        "WifiServer",
+        8192,
+        NULL,
+        1,
+        &WifiTaskHandle,
+        0
+    );
 }
 
-void loop()
-{
-    server.handleClient();
-
-    float distance1 = getDistance(trigPin1, echoPin1);
-    float distance2 = getDistance(trigPin2, echoPin2);
-    float distance3 = getDistance(trigPin3, echoPin3);
-    float distance4 = getDistance(trigPin4, echoPin4);
-
-    // Check if any sensor detects an object within 20 cm
-    if (distance1 <= threshold || distance2 <= threshold || distance3 <= threshold || distance4 <= threshold)
-    {
-        // Apagar el motor si se detecta un objeto a 20 cm o menos en cualquier sensor
-        digitalWrite(R_I_EN, LOW);
-        ledcWrite(pwmChannel, 0);
-        delayMicroseconds(10);
-        ledcWrite(pwmChannel2, 0);
-        digitalWrite(2, 0);
-    }
-    else
-    {
-        // Mantener la velocidad actual si no hay objetos cercanos
-        digitalWrite(R_I_EN, HIGH);
-        ledcWrite(pwmChannel, velocidad);
-        delayMicroseconds(10);
-        ledcWrite(pwmChannel2, 0);
-    }
-    if (velocidad < 25)
-        digitalWrite(2, 0);
-    delay(10); // Pequeña pausa para no saturar los sensores
+void loop() {
+    // Mantener la velocidad actual del motor
+    digitalWrite(R_I_EN, HIGH);
+    ledcWrite(pwmChannel, velocidad);
+    delayMicroseconds(10);
+    ledcWrite(pwmChannel2, 0);
 }
