@@ -1,4 +1,4 @@
-# Documentación del Zootropo Interactivo
+# Zoótropo Interactivo
 
 ## Proyecto dentro de la exposición "Antropocósmico"
 
@@ -6,7 +6,7 @@
 
 Este documento detalla el proyecto **Zootropo Interactivo**, una pieza central de la exposición **"Antropocósmico"**. Esta exposición, presentada por el Tecnológico de Monterrey, Campus Puebla, en colaboración con el MUI (Museo Urbano Interactivo), explora la profunda **conexión entre el ser humano y el cosmos** en [Noviembre 2024](https://www.facebook.com/story.php?story_fbid=1110486777747822&id=100063595313118).
 
-El Zootropo Interactivo fue desarrollado como una instalación de arte dinámico que materializa este concepto. El proyecto consiste en un zootropo de 1.2 metros de diámetro con 12 figuras animadas que, a través de la ilusión del movimiento, invitan a la reflexión sobre nuestro lugar en el universo y la naturaleza cíclica de la existencia. La instalación es interactiva, reaccionando a la presencia del público para crear un diálogo entre el espectador, la obra y el tema cósmico.
+El Zoótropo Interactivo fue desarrollado como una instalación de arte dinámico que materializa este concepto. El proyecto consiste en un zootropo de 1.2 metros de diámetro con 12 figuras animadas que, a través de la ilusión del movimiento, invitan a la reflexión sobre nuestro lugar en el universo y la naturaleza cíclica de la existencia. La instalación es interactiva, reaccionando a la presencia del público para crear un diálogo entre el espectador, la obra y el tema cósmico.
 
 ---
 
